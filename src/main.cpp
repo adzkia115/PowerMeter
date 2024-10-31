@@ -1,37 +1,36 @@
 #include <Arduino.h>
-#include <LiquidCrystal_I2C.h>
-int lcdColumns = 20;
-int lcdRows = 4;
-LiquidCrystal_I2C lcd(0x27, lcdColumns, lcdRows);  
-
-#ifdef ESP32
-  #include <WiFi.h>
-#else
-  #include <ESP8266WiFi.h>
-#endif
+#include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
 #include "DHT.h"
+#include <LiquidCrystal_I2C.h>
+
+int lcdColumns = 20;
+int lcdRows = 4;
+int ledPin = 2;
+int pirPin = 36;
+bool ledState = LOW;
+bool pirStat = LOW; 
+
+
+String chat_id2 = "5430299098";
+
+LiquidCrystal_I2C lcd(0x27, lcdColumns, lcdRows);  
 
 // Replace with your network credentials
 const char* ssid = "Android 14";
 const char* password = "mintamulu";
+WiFiClientSecure client;
+
 
 // Initialize Telegram BOT
 #define BOTtoken "7574239427:AAFDOeEdJWiBzxBaYAt3rY5dAOuaAJ4K_6A"  // your Bot Token (Get from Botfather)
-
-// Use @myidbot to find out the chat ID of an individual or a group
-// Also note that you need to click "start" on a bot before it can
-// message you
 #define CHAT_ID "5430299098"
-
-#ifdef ESP8266
-  X509List cert(TELEGRAM_CERTIFICATE_ROOT);
-#endif
-
-WiFiClientSecure client;
 UniversalTelegramBot bot(BOTtoken, client);
+
+
+
 
 // Checks for new messages every 1 second.
 int botRequestDelay = 1000;
@@ -41,19 +40,12 @@ unsigned long lastTimeBotRan;
 #define DHTTYPE DHT11   // DHT 11
 DHT dht(DHTPIN, DHTTYPE);
 
-const int ledPin = 2;
-bool ledState = LOW;
 
 
 void setup() {
   Serial.begin(115200);
-
-  #ifdef ESP8266
-    configTime(0, 0, "pool.ntp.org");      // get UTC time via NTP
-    client.setTrustAnchors(&cert); // Add root certificate for api.telegram.org
-  #endif
-
   pinMode(ledPin, OUTPUT);
+  pinMode(pirPin, INPUT);
   digitalWrite(ledPin, ledState);
   
   // Connect to Wi-Fi
@@ -79,35 +71,39 @@ void setup() {
   lcd.backlight();
 }
 
-String chat_id2 = "5430299098";
 
 void loop() 
 {
-  delay(2000);
+  pirStat = digitalRead(pirPin);
+  if (pirStat == HIGH) 
+  {
+    digitalWrite(ledPin, HIGH);
+    Serial.println("Hey I got you!!!");
+  }
+  else 
+  {
+    digitalWrite(ledPin, LOW);
+  }
 
   // Reading temperature or humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-  float h = dht.readHumidity();
-  // Read temperature as Celsius (the default)
-  float t = dht.readTemperature();
-  // Read temperature as Fahrenheit (isFahrenheit = true)
-  float f = dht.readTemperature(true);
-
-  // Check if any reads failed and exit early (to try again).
-  if (isnan(h) || isnan(t) || isnan(f)) {
+  float h = dht.readHumidity();         // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();      // Read temperature as Fahrenheit (isFahrenheit = true)
+  float f = dht.readTemperature(true);  // Check if any reads failed and exit early (to try again).
+  if (isnan(h) || isnan(t) || isnan(f)) 
+  {
     Serial.println(F("Failed to read from DHT sensor!"));
     return;
   }
 
-  // Compute heat index in Fahrenheit (the default)
-  float hif = dht.computeHeatIndex(f, h);
-  // Compute heat index in Celsius (isFahreheit = false)
-  float hic = dht.computeHeatIndex(t, h, false);
-
-
-  // set cursor to first column, first row
-  lcd.setCursor(0, 0);
-  // print message
+  Serial.print(F("Humidity: "));
+  Serial.print(h);
+  Serial.print(F("%  Temperature: "));
+  Serial.print(t);
+  Serial.print(F("°C "));
+  Serial.println(f);
+  
+  lcd.setCursor(0, 0);  // set cursor to first column, first row
   lcd.print("Temp: ");
   lcd.print(t);
   lcd.print("'C");
@@ -116,16 +112,13 @@ void loop()
   lcd.print("Humidity: ");
   lcd.print(h);
   lcd.print("%");
-  delay(10000);
+
+  lcd.setCursor(0,2);
+  lcd.print("Human: ");
+  lcd.print(pirStat);
+
+  delay(5000);
   lcd.clear(); 
-
-
-  Serial.print(F("Humidity: "));
-  Serial.print(h);
-  Serial.print(F("%  Temperature: "));
-  Serial.print(t);
-  Serial.print(F("°C "));
-  Serial.print(f);
 
   if (t > 35)
   {
